@@ -14,7 +14,7 @@ import plotly.graph_objs as go
 import plotly.figure_factory as ff
 
 # Specify data location
-data_path = './Dash Project/transit_time.csv'
+data_path = 'transit_time.csv'
 
 # Import and clean data
 df = pd.read_csv(data_path, skiprows=1)
@@ -62,8 +62,8 @@ for area in df.area:
     df.loc[df.area==area, ['rank_lb']] = LambdaL_k_len + 1
     df.loc[df.area==area, ['rank_ub']] = LambdaL_k_len + LambdaO_k_len + 1
 
-
-
+    # Reset index
+    df = df.reset_index(drop=True)
 # ------------------
 # HELPER FUNCTIONS
 # ------------------
@@ -92,14 +92,14 @@ def right_column(child_elements):
 def ranking_table(tab_data):
     """
     Draw a table of state rankings. Should highlight ranks within a confidence interval
-    when a state is selected (clicked) or hovered over.
+    when a state is selected.
     """
     my_tab = table.DataTable(
         id='interactive-ranking-table',
         columns=[{"name":i, "id":i} for i in ['area', 'rank']],
         data=tab_data.to_dict('records'),
         row_selectable="multi",
-        selected_rows=[],
+        selected_rows=list(range(len(tab_data))),
         style_cell_conditional=[
             {
                 'if':{'column_id':c}, 
@@ -114,45 +114,65 @@ def ranking_table(tab_data):
     )
     return(my_tab)
 
-def draw_heatmap(hm_data):
-    hm_data = hm_data.reset_index(drop=True)
-    hm_data['rank']
+def draw_heatmap(hm_data, col_indices):
+
+    if col_indices is None or len(col_indices) == 0:
+        return {}
+    
+    # Create empty heatmap matrix
     hm_mtx = np.zeros((len(hm_data), len(hm_data)))
 
+    # Save rank range
+    yaxis_ranks = hm_data['rank']
+    
+    # Fill in all possible ranks as grey colored cells
     for i in range(len(hm_data)):
-        hm_mtx[i, int(hm_data['rank_lb'][i]) : int(hm_data['rank_ub'][i])] = 1
-        hm_mtx[i, int(hm_data['rank'][i]-1)] = 1
+        hm_mtx[(int(hm_data['rank_lb'][i]) - 1) : (int(hm_data['rank_ub'][i])), i] = 0.5
 
-    #fig = ff.create_annotated_heatmap(hm_mtx, 
-    #    annotation_text=None, 
-    #    colorscale='Greys')
+    # Fill in "point estimate" rank as black colored cells
+    np.fill_diagonal(hm_mtx, 1)
 
+    # Subset the matrix and hm_data according to selected rows
+    hm_data = hm_data.loc[hm_data['rank'].isin([i+1 for i in col_indices])]
+    hm_mtx = hm_mtx[:, col_indices]
+
+    # Create the figure to return
     fig = go.Figure(
         data=[go.Heatmap(
-            x=hm_data['rank'],
-            y=hm_data['area'],
+            x=hm_data['area'],
+            y=yaxis_ranks,
             z=hm_mtx,
             colorscale='Greys',
-            colorbar=None,
+            xgap = 1,
+            ygap = 1,
         )],
         layout=go.Layout(
-            #title = 'The thing',
             xaxis = dict(
                 showgrid=True,
                 zeroline=False,
                 showline=True,
+                type='category',
             ),
             yaxis=dict(
                 showgrid=True,
                 zeroline=False,
                 showline=True,
+                type='category',
             ),
             autosize=True,
-            height=1000,
-            hovermode='closest',
+            height=750,
+            hovermode=False,
         )
     )
 
+    # Reverse the y-axis order from the default
+    fig['layout']['yaxis']['autorange'] = "reversed"
+    fig['layout']['xaxis']['dtick'] = 1
+    fig['layout']['yaxis']['dtick'] = 1
+    fig.update_xaxes(automargin=True, tickangle=90)
+    fig.update_traces(showscale=False)
+
+    # Return the figure
     return fig
 
 # ------------------
@@ -188,20 +208,32 @@ app.layout = html.Div(
                 html.Div(
                     id="right-column",
                     className="eight columns",
-                    children=[dcc.Graph(figure=draw_heatmap(df))],
+                    children=[dcc.Graph(figure=draw_heatmap(df, []))],
                     style={'width':'75%', 
                     'display':'inline-block', 
                     'align':'left',
                     'float':'right'}
                 )
-                #left_column(ranking_table(df)),
-                #right_column(dcc.Graph(figure=draw_heatmap(df)))
               ]
 )
 
-#app.layout = html.Div([
-#    dcc.Graph(figure=draw_heatmap(df))
-#])
+@app.callback(
+    Output('interactive-ranking-table', 'style_data_conditional'),
+    [Input('interactive-ranking-table', 'selected_rows')]
+)
+def update_styles(selected_rows):
+    return [{
+        'if':{'row_index': i},
+        'background_color':'#D2F3FF'
+    } for i in selected_rows]
+
+@app.callback(
+    Output('right-column', 'children'),
+    [Input('interactive-ranking-table', 'selected_rows')]
+)
+def update_heatmap(selected_rows):
+    selected_rows.sort()
+    return [dcc.Graph(figure=draw_heatmap(df, selected_rows))]
 
 if __name__ == '__main__':
     app.run_server(debug=True)
