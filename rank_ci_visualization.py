@@ -66,10 +66,23 @@ for area in df.area:
     df = df.reset_index(drop=True)
 
     # Add regions
-    #df['region'] = 'Other'
-    #for area in df['area']:
-    #    if area in ['Washington', 'Oregon', 'California', 'Alaska', 'Hawaii']:
-    #        df.loc[df['area'].isin()] = 'P'
+    northeast_state_ranks = list(df.loc[df.area.isin(['Connecticut', 'Maine', 
+    'Massachusetts', 'New Hampshire', 'Rhode Island', 'Vermont', 'New Jersey',
+    'New York', 'Pennsylvania'])]['rank'])
+
+    midwest_state_ranks = list(df.loc[df.area.isin(['Indiana', 'Illinois', 'Michigan',
+    'Ohio', 'Wisconsin', 'Iowa', 'Kansas', 'Minnesota', 'Missouri', 'Nebraska',
+    'North Dakota', 'South Dakota'])]['rank'])
+
+    west_state_ranks = list(df.loc[df.area.isin(['California', 'Washington', 'Arizona', 'Colorado',
+    'Oregon', 'Utah', 'Nevada', 'New Mexico', 'Idaho', 'Montana', 'Wyoming', 'Alaska',
+    'Hawaii'])]['rank'])
+
+    south_state_ranks = list(df.loc[df.area.isin(['Delaware', 'District of Columbia',
+    'Florida', 'Georgia', 'Maryland', 'North Carolina', 'South Carolina', 'Virginia',
+    'West Virginia', 'Alabama', 'Kentucky', 'Mississippi', 'Tennessee', 'Arkansas',
+    'Louisiana', 'Oklahoma', 'Texas'])]['rank'])
+
 
 # ------------------
 # HELPER FUNCTIONS
@@ -205,9 +218,22 @@ app.layout = html.Div(
                     id="left-column",
                     className="four columns",
                     children=[
-                        html.Button('All States', id='all-button', n_clicks=0), 
-                        html.Button('No States', id='none-button', n_clicks=0),
-                        ranking_table(df)
+                        dcc.Tabs(id='nav-tabs', value='tab-1', children=[
+                            dcc.Tab(label='Regions', value='tab-1', children=[
+                                dcc.RadioItems(id='region-select', options=[
+                                    {'label':'None', 'value':'no-states'},
+                                    {'label':'All', 'value':'all-states'},
+                                    {'label':'Northeast', 'value':'ne-states'},
+                                    {'label':'Midwest', 'value':'mw-states'},
+                                    {'label':'West', 'value':'wst-states'},
+                                    {'label':'South', 'value':'sth-states'},
+                                ], labelStyle={'display':'block'}, value='no-states')
+                            ]),
+                            dcc.Tab(label='States', value='tab-2', children=[
+                                ranking_table(df)
+                            ]),
+                        ]),
+                        html.Div(id='nav-tab-content')
                         ],
                     style={'width':'25%', 
                     'display':'inline-block', 
@@ -219,7 +245,8 @@ app.layout = html.Div(
                 html.Div(
                     id="right-column",
                     className="eight columns",
-                    children=[dcc.Graph(figure=draw_heatmap(df, []))],
+                    children=[dcc.Graph(figure=draw_heatmap(df, []),
+                                        config={'displayModeBar':False})],
                     style={'width':'75%', 
                     'display':'inline-block', 
                     'align':'left',
@@ -227,6 +254,24 @@ app.layout = html.Div(
                 )
               ]
 )
+
+@app.callback(
+    Output('interactive-ranking-table', 'selected_rows'),
+    [Input('region-select', 'value')]
+)
+def region_select(value):
+    if value=='no-states':
+        return []
+    if value=='all-states':
+        return list(range(51))
+    if value=='ne-states':
+        return [i-1 for i in northeast_state_ranks]
+    if value=='mw-states':
+        return [i-1 for i in midwest_state_ranks]
+    if value=='wst-states':
+        return [i-1 for i in west_state_ranks]
+    if value=='sth-states':
+        return [i-1 for i in south_state_ranks]
 
 @app.callback(
     Output('interactive-ranking-table', 'style_data_conditional'),
@@ -244,26 +289,10 @@ def update_styles(selected_rows):
 )
 def update_heatmap(selected_rows):
     selected_rows.sort()
-    return [dcc.Graph(figure=draw_heatmap(df, selected_rows))]
+    return [dcc.Graph(figure=draw_heatmap(df, selected_rows), 
+                      config={'displayModeBar':False})]
 
-@app.callback(
-    Output('interactive-ranking-table', 'selected_rows'),
-    [Input('all-button', 'n_clicks'),],
-    [State('interactive-ranking-table', 'derived_virtual_data')]
-)
-def select_all_rows(n_clicks, selected_rows):
-    if selected_rows is None:
-        return []
-    else:
-        return list(range(51))
-
-#@app.callback(
-#    Output('interactive-ranking-table', 'selected_rows'),
-#    [Input('none-button', 'n_clicks'),],
-#    [State('interactive-ranking-table', 'derived_virtual_data')]
-#)
-#def select_all_rows(n_clicks, selected_rows):
-#    return []
+app.config['suppress_callback_exceptions'] = True
 
 if __name__ == '__main__':
     app.run_server(debug=True)
