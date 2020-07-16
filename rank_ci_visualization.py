@@ -3,7 +3,7 @@ import dash
 import dash_core_components as dcc 
 import dash_html_components as html 
 import dash_table as table
-from dash.dependencies import Input, Output, ClientsideFunction
+from dash.dependencies import Input, Output, State, ClientsideFunction
 
 # Data manipulation dependencies
 import pandas as pd
@@ -64,6 +64,13 @@ for area in df.area:
 
     # Reset index
     df = df.reset_index(drop=True)
+
+    # Add regions
+    #df['region'] = 'Other'
+    #for area in df['area']:
+    #    if area in ['Washington', 'Oregon', 'California', 'Alaska', 'Hawaii']:
+    #        df.loc[df['area'].isin()] = 'P'
+
 # ------------------
 # HELPER FUNCTIONS
 # ------------------
@@ -99,7 +106,7 @@ def ranking_table(tab_data):
         columns=[{"name":i, "id":i} for i in ['area', 'rank']],
         data=tab_data.to_dict('records'),
         row_selectable="multi",
-        selected_rows=list(range(len(tab_data))),
+        selected_rows=[],
         style_cell_conditional=[
             {
                 'if':{'column_id':c}, 
@@ -115,9 +122,6 @@ def ranking_table(tab_data):
     return(my_tab)
 
 def draw_heatmap(hm_data, col_indices):
-
-    if col_indices is None or len(col_indices) == 0:
-        return {}
     
     # Create empty heatmap matrix
     hm_mtx = np.zeros((len(hm_data), len(hm_data)))
@@ -143,8 +147,8 @@ def draw_heatmap(hm_data, col_indices):
             y=yaxis_ranks,
             z=hm_mtx,
             colorscale='Greys',
-            xgap = 1,
-            ygap = 1,
+            xgap = 2,
+            ygap = 2,
         )],
         layout=go.Layout(
             xaxis = dict(
@@ -172,6 +176,9 @@ def draw_heatmap(hm_data, col_indices):
     fig.update_xaxes(automargin=True, tickangle=90)
     fig.update_traces(showscale=False)
 
+    if col_indices is None or len(col_indices) == 0:
+        fig['layout'].update(plot_bgcolor='white')
+
     # Return the figure
     return fig
 
@@ -197,7 +204,11 @@ app.layout = html.Div(
                 html.Div(
                     id="left-column",
                     className="four columns",
-                    children=[ranking_table(df)],
+                    children=[
+                        html.Button('All States', id='all-button', n_clicks=0), 
+                        html.Button('No States', id='none-button', n_clicks=0),
+                        ranking_table(df)
+                        ],
                     style={'width':'25%', 
                     'display':'inline-block', 
                     'float':'left', 
@@ -234,6 +245,25 @@ def update_styles(selected_rows):
 def update_heatmap(selected_rows):
     selected_rows.sort()
     return [dcc.Graph(figure=draw_heatmap(df, selected_rows))]
+
+@app.callback(
+    Output('interactive-ranking-table', 'selected_rows'),
+    [Input('all-button', 'n_clicks'),],
+    [State('interactive-ranking-table', 'derived_virtual_data')]
+)
+def select_all_rows(n_clicks, selected_rows):
+    if selected_rows is None:
+        return []
+    else:
+        return list(range(51))
+
+#@app.callback(
+#    Output('interactive-ranking-table', 'selected_rows'),
+#    [Input('none-button', 'n_clicks'),],
+#    [State('interactive-ranking-table', 'derived_virtual_data')]
+#)
+#def select_all_rows(n_clicks, selected_rows):
+#    return []
 
 if __name__ == '__main__':
     app.run_server(debug=True)
