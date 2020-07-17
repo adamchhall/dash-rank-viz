@@ -246,7 +246,8 @@ app.layout = html.Div(
                     id="right-column",
                     className="eight columns",
                     children=[dcc.Graph(figure=draw_heatmap(df, []),
-                                        config={'displayModeBar':False})],
+                                        config={'displayModeBar':False,
+                                                'staticPlot':True})],
                     style={'width':'75%', 
                     'display':'inline-block', 
                     'align':'left',
@@ -290,7 +291,8 @@ def update_styles(selected_rows):
 def update_heatmap(selected_rows):
     selected_rows.sort()
     return [dcc.Graph(figure=draw_heatmap(df, selected_rows), 
-                      config={'displayModeBar':False})]
+                      config={'displayModeBar':False,
+                              'staticPlot':True})]
 
 app.config['suppress_callback_exceptions'] = True
 
