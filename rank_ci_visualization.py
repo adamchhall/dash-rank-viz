@@ -134,6 +134,31 @@ def ranking_table(tab_data):
     )
     return(my_tab)
 
+def draw_errbar(eb_data, col_indices):
+
+    draw_data = eb_data.loc[eb_data['rank'].isin([i+1 for i in col_indices])]
+
+    fig = go.Figure(data=go.Scatter(
+        x = draw_data['area'],
+        y = draw_data['est_total'],
+        error_y = dict(
+            type = 'data',
+            array = [(3.1/1.645)*i for i in list(draw_data['moe_total'])],
+            visible = True
+        )))
+
+    fig['layout']['xaxis']['dtick'] = 1
+
+    if col_indices is None or len(col_indices) == 0:
+        fig.update_layout(plot_bgcolor='white', 
+                          xaxis=dict(ticks='', showticklabels=False), 
+                          yaxis=dict(ticks='', showticklabels=False))
+    else:
+        fig.update_layout(template='plotly_white', title="Confidence Intervals for Total Travel Time")
+
+    return fig
+
+
 def draw_heatmap(hm_data, col_indices):
     
     # Create empty heatmap matrix
@@ -191,6 +216,8 @@ def draw_heatmap(hm_data, col_indices):
 
     if col_indices is None or len(col_indices) == 0:
         fig['layout'].update(plot_bgcolor='white')
+    else:
+        fig.update_layout(title='State Ranking (Total Travel Time)')
 
     # Return the figure
     return fig
@@ -210,7 +237,7 @@ app.layout = html.Div(
                 html.Div(
                     id='banner',
                     className='banner',
-                    children=["blah"]
+                    children=["Regions to Visualize"]
                 ),
                 
                 # Left column
@@ -246,6 +273,9 @@ app.layout = html.Div(
                     id="right-column",
                     className="eight columns",
                     children=[dcc.Graph(figure=draw_heatmap(df, []),
+                                        config={'displayModeBar':False,
+                                                'staticPlot':True}),
+                              dcc.Graph(figure=draw_errbar(df, []),
                                         config={'displayModeBar':False,
                                                 'staticPlot':True})],
                     style={'width':'75%', 
@@ -291,6 +321,9 @@ def update_styles(selected_rows):
 def update_heatmap(selected_rows):
     selected_rows.sort()
     return [dcc.Graph(figure=draw_heatmap(df, selected_rows), 
+                      config={'displayModeBar':False,
+                              'staticPlot':True}),
+            dcc.Graph(figure=draw_errbar(df, selected_rows),
                       config={'displayModeBar':False,
                               'staticPlot':True})]
 
