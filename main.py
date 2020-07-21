@@ -116,7 +116,7 @@ def ranking_table(tab_data):
     """
     my_tab = table.DataTable(
         id='interactive-ranking-table',
-        columns=[{"name":i, "id":i} for i in ['area', 'rank']],
+        columns=[{"name":"State", "id":'area'}, {"name":"Rank", "id":"rank"}],
         data=tab_data.to_dict('records'),
         row_selectable="multi",
         selected_rows=[],
@@ -154,7 +154,7 @@ def draw_errbar(eb_data, col_indices):
                           xaxis=dict(ticks='', showticklabels=False), 
                           yaxis=dict(ticks='', showticklabels=False))
     else:
-        fig.update_layout(template='plotly_white', title="Confidence Intervals for Total Travel Time")
+        fig.update_layout(template='plotly_white', title="90% Confidence Intervals for Total Travel Time")
 
     return fig
 
@@ -217,7 +217,7 @@ def draw_heatmap(hm_data, col_indices):
     if col_indices is None or len(col_indices) == 0:
         fig['layout'].update(plot_bgcolor='white')
     else:
-        fig.update_layout(title='State Ranking (Total Travel Time)')
+        fig.update_layout(title='90% Confidence Intervals for State Ranking (Total Travel Time)')
 
     # Return the figure
     return fig
@@ -232,14 +232,7 @@ app = dash.Dash(__name__)
 # HTML Document Container
 app.layout = html.Div(
     id="app-container",
-    children=[
-                # Banner
-                html.Div(
-                    id='banner',
-                    className='banner',
-                    children=["Regions to Visualize"]
-                ),
-                
+    children=[                
                 # Left column
                 html.Div(
                     id="left-column",
@@ -272,7 +265,23 @@ app.layout = html.Div(
                 html.Div(
                     id="right-column",
                     className="eight columns",
-                    children=[dcc.Graph(figure=draw_heatmap(df, []),
+                    children=[html.H1(
+                                  id='banner',
+                                  className='banner',
+                                  children=["Transit Time Visualization Demo"],
+                                  style={
+                                      'textAlign':'center'
+                                  }
+                              ),
+                              html.H3(
+                                  id='subbanner',
+                                  className='banner',
+                                  children="Estimated Total Travel Time to Work (2016 ACS)",
+                                  style={
+                                      'textAlign':'center'
+                                  }
+                              ),
+                              dcc.Graph(figure=draw_heatmap(df, []),
                                         config={'displayModeBar':False,
                                                 'staticPlot':True}),
                               dcc.Graph(figure=draw_errbar(df, []),
@@ -320,7 +329,20 @@ def update_styles(selected_rows):
 )
 def update_heatmap(selected_rows):
     selected_rows.sort()
-    return [dcc.Graph(figure=draw_heatmap(df, selected_rows), 
+    return [html.H1(id='banner',
+                    className='banner',
+                    children=["Transit Time Visualization Demo"],
+                    style={
+                        'textAlign':'center'
+                    }),
+            html.H3(id='subbanner',
+                    className='banner',
+                    children="Estimated Total Travel Time to Work (2016 ACS)",
+                    style={
+                        'textAlign':'center'
+                    }
+                ),
+            dcc.Graph(figure=draw_heatmap(df, selected_rows), 
                       config={'displayModeBar':False,
                               'staticPlot':True}),
             dcc.Graph(figure=draw_errbar(df, selected_rows),
@@ -330,4 +352,4 @@ def update_heatmap(selected_rows):
 app.config['suppress_callback_exceptions'] = True
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', port=8080, debug=True)
