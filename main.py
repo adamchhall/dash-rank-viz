@@ -3,7 +3,7 @@ import dash
 import dash_core_components as dcc 
 import dash_html_components as html 
 import dash_table as table
-from dash.dependencies import Input, Output, State, ClientsideFunction
+from dash.dependencies import Input, Output
 
 # Data manipulation dependencies
 import pandas as pd
@@ -11,78 +11,25 @@ import numpy as np
 
 # Plotly dependencies
 import plotly.graph_objs as go
-import plotly.figure_factory as ff
 
-# Specify data location
-data_path = 'transit_time.csv'
+# Import data csv
+df = pd.read_csv('cleaned_transit_time.csv')
 
-# Import and clean data
-df = pd.read_csv(data_path, skiprows=1)
-df = df[['area', 'est_total', 'moe_total']]
-df = df.sort_values(by='est_total', ascending=False)
-df['rank'] = list(range(1, len(df)+1))
+# Create empty heatmap matrix
+hm_mtx = np.zeros((len(df), len(df)))
 
-# Add in Bonferroni-corrected joint confidence intervals
-# By default MOE is for alpha = 0.1 (z = 1.645).
-# Applying Bonferroni correction for 51 states,
-# we want alpha = 0.1/51 which corresponds to z = 3.1.
-df['total_lb'] = df['est_total'] - (3.1/1.645)*df['moe_total']
-df['total_ub'] = df['est_total'] + (3.1/1.645)*df['moe_total']
-df['rank_lb']=None
-df['rank_ub']=None
+# Fill in all possible ranks as grey colored cells
+for i in range(len(df)):
+    hm_mtx[(int(df['rank_lb'][i]) - 1) : (int(df['rank_ub'][i])), i] = 0.5
 
-# Set debug status
-ci_debug = False
+# Fill in "point estimate" rank as black colored cells
+np.fill_diagonal(hm_mtx, 1)
 
-# Find joint confidence region for ranks
-for area in df.area:
-    # Store area confidence interval
-    area_k_ci = (float(df[df.area == area]['total_lb']), 
-                 float(df[df.area == area]['total_ub']))
-
-    # Find the length of LambdaL_k and LambdaR_k
-    LambdaL_k_len = (area_k_ci[1] < df['total_lb']).sum()
-    LambdaR_k_len = (area_k_ci[0] > df['total_ub']).sum()
-
-    # Find the overlap and length of LambdaO_k
-    overlap = np.maximum(0, np.minimum(area_k_ci[1], df['total_ub']) - np.maximum(area_k_ci[0], df['total_lb']))
-    LambdaO_k_len = (overlap!=0).sum()-1
-
-    # Debug Output
-    if ci_debug==True:
-        print('Area: ', area, '\n')
-        print('Theta CI: ', area_k_ci, '\n')
-        print('Rank: ', int(df[df.area == area]['rank']), '\n')
-        print('Rank CI: ', (LambdaL_k_len + 1, LambdaL_k_len + LambdaO_k_len + 1))
-        print('|LambdaL_k|: ', LambdaL_k_len, '\n')
-        print('|LambdaR_k|: ', LambdaR_k_len, '\n')
-        print('|LambdaO_k|: ', LambdaO_k_len, '\n')
-
-    # Add rank intervals to df
-    df.loc[df.area==area, ['rank_lb']] = LambdaL_k_len + 1
-    df.loc[df.area==area, ['rank_ub']] = LambdaL_k_len + LambdaO_k_len + 1
-
-    # Reset index
-    df = df.reset_index(drop=True)
-
-    # Add regions
-    northeast_state_ranks = list(df.loc[df.area.isin(['Connecticut', 'Maine', 
-    'Massachusetts', 'New Hampshire', 'Rhode Island', 'Vermont', 'New Jersey',
-    'New York', 'Pennsylvania'])]['rank'])
-
-    midwest_state_ranks = list(df.loc[df.area.isin(['Indiana', 'Illinois', 'Michigan',
-    'Ohio', 'Wisconsin', 'Iowa', 'Kansas', 'Minnesota', 'Missouri', 'Nebraska',
-    'North Dakota', 'South Dakota'])]['rank'])
-
-    west_state_ranks = list(df.loc[df.area.isin(['California', 'Washington', 'Arizona', 'Colorado',
-    'Oregon', 'Utah', 'Nevada', 'New Mexico', 'Idaho', 'Montana', 'Wyoming', 'Alaska',
-    'Hawaii'])]['rank'])
-
-    south_state_ranks = list(df.loc[df.area.isin(['Delaware', 'District of Columbia',
-    'Florida', 'Georgia', 'Maryland', 'North Carolina', 'South Carolina', 'Virginia',
-    'West Virginia', 'Alabama', 'Kentucky', 'Mississippi', 'Tennessee', 'Arkansas',
-    'Louisiana', 'Oklahoma', 'Texas'])]['rank'])
-
+# Rank lists
+northeast_state_ranks = df.loc[df.region == 'Northeast']['rank']
+west_state_ranks = df.loc[df.region == 'West']['rank']
+south_state_ranks = df.loc[df.region == 'South']['rank']
+midwest_state_ranks = df.loc[df.region == 'Midwest']['rank']
 
 # ------------------
 # HELPER FUNCTIONS
@@ -159,20 +106,10 @@ def draw_errbar(eb_data, col_indices):
     return fig
 
 
-def draw_heatmap(hm_data, col_indices):
-    
-    # Create empty heatmap matrix
-    hm_mtx = np.zeros((len(hm_data), len(hm_data)))
+def draw_heatmap(hm_data, hm_mtx, col_indices):
 
     # Save rank range
     yaxis_ranks = hm_data['rank']
-    
-    # Fill in all possible ranks as grey colored cells
-    for i in range(len(hm_data)):
-        hm_mtx[(int(hm_data['rank_lb'][i]) - 1) : (int(hm_data['rank_ub'][i])), i] = 0.5
-
-    # Fill in "point estimate" rank as black colored cells
-    np.fill_diagonal(hm_mtx, 1)
 
     # Subset the matrix and hm_data according to selected rows
     hm_data = hm_data.loc[hm_data['rank'].isin([i+1 for i in col_indices])]
@@ -238,7 +175,7 @@ app.layout = html.Div(
                     id="left-column",
                     className="four columns",
                     children=[
-                        dcc.Tabs(id='nav-tabs', value='tab-1', children=[
+                        dcc.Tabs(id='nav-tabs', value='tab-2', children=[
                             dcc.Tab(label='Regions', value='tab-1', children=[
                                 dcc.RadioItems(id='region-select', options=[
                                     {'label':'None', 'value':'no-states'},
@@ -281,7 +218,7 @@ app.layout = html.Div(
                                       'textAlign':'center'
                                   }
                               ),
-                              dcc.Graph(figure=draw_heatmap(df, []),
+                              dcc.Graph(figure=draw_heatmap(df, hm_mtx, []),
                                         config={'displayModeBar':False,
                                                 'staticPlot':True}),
                               dcc.Graph(figure=draw_errbar(df, []),
@@ -342,14 +279,12 @@ def update_heatmap(selected_rows):
                         'textAlign':'center'
                     }
                 ),
-            dcc.Graph(figure=draw_heatmap(df, selected_rows), 
+            dcc.Graph(figure=draw_heatmap(df, hm_mtx, selected_rows), 
                       config={'displayModeBar':False,
                               'staticPlot':True}),
             dcc.Graph(figure=draw_errbar(df, selected_rows),
                       config={'displayModeBar':False,
                               'staticPlot':True})]
 
-app.config['suppress_callback_exceptions'] = True
-
-#if __name__ == '__main__':
-app.run_server(host='0.0.0.0', port=8080, debug=True)
+# Run the app
+app.run_server(host='0.0.0.0', port=8080, debug=False)
