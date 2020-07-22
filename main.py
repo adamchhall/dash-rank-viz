@@ -149,7 +149,7 @@ def draw_errbar(eb_data, col_indices):
 
     fig['layout']['xaxis']['dtick'] = 1
 
-    if col_indices is None or len(col_indices) == 0:
+    if col_indices == None or len(col_indices) == 0:
         fig.update_layout(plot_bgcolor='white', 
                           xaxis=dict(ticks='', showticklabels=False), 
                           yaxis=dict(ticks='', showticklabels=False))
@@ -214,7 +214,7 @@ def draw_heatmap(hm_data, col_indices):
     fig.update_xaxes(automargin=True, tickangle=90)
     fig.update_traces(showscale=False)
 
-    if col_indices is None or len(col_indices) == 0:
+    if col_indices == None or len(col_indices) == 0:
         fig['layout'].update(plot_bgcolor='white')
     else:
         fig.update_layout(title='90% Confidence Intervals for State Ranking (Total Travel Time)')
@@ -351,5 +351,5 @@ def update_heatmap(selected_rows):
 
 app.config['suppress_callback_exceptions'] = True
 
-if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8080, debug=True)
+#if __name__ == '__main__':
+app.run_server(debug=True)
