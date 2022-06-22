@@ -8,6 +8,6 @@ Flask==1.1.2
 Flask-Compress==1.5.0
 future==0.18.2
 gunicorn==20.0.4
-numpy==1.17.4
+numpy==1.22.0
 pandas==0.25.3
 plotly==4.4.1
